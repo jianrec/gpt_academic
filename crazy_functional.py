@@ -52,6 +52,7 @@ def get_crazy_functions():
     from crazy_functions.VideoResource_GPT import 多媒体任务
     from crazy_functions.Document_Conversation import 批量文件询问
     from crazy_functions.Document_Conversation_Wrap import Document_Conversation_Wrap
+    from crazy_functions.Translation_Library import 查看译文库
 
 
     function_plugins = {
@@ -119,6 +120,13 @@ def get_crazy_functions():
             "Info": "ArXiv论文精细翻译 | 输入参数arxiv论文的ID，比如1812.10695",
             "Function": HotReload(Latex翻译中文并重新编译PDF),  # 当注册Class后，Function旧接口仅会在“虚空终端”中起作用
             "Class": Arxiv_Localize,    # 新一代插件需要注册Class
+        },
+        "查看译文库": {
+            "Group": "学术",
+            "Color": "stop",
+            "AsButton": True,
+            "Info": "列出固定译文库中所有翻译好的论文并显示下载链接 | 留空=列出全部；输入路径=收入新文件",
+            "Function": HotReload(查看译文库),
         },
         "批量总结Word文档": {
             "Group": "学术",

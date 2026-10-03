@@ -416,9 +416,51 @@ def file_already_in_downloadzone(file:str, user_path:str):
         return False
 
 
+def get_translation_library_dir(user=default_user_name):
+    # 译文固定存放目录：gpt_log/<user>/译文库（可在项目根目录通过“译文库”快捷方式访问）
+    return get_log_folder(user, plugin_name="译文库")
+
+
+def archive_translation_to_library(file:str, user_name:str=default_user_name):
+    # 将翻译产物归档到固定文件夹“译文库”，方便日后查找；非翻译类文件不受影响
+    try:
+        base = os.path.basename(file)
+        if base in ('translate_zh.pdf', 'merge_translate_zh.pdf'):
+            kind = '中文译文'
+        elif base == 'comparison.pdf':
+            kind = '原文对照'
+        else:
+            return None
+        # 从路径中提取arxiv编号（如 gpt_log/arxiv_cache/2604.10027/...）
+        arxiv_id = None
+        match = re.search(r'arxiv_cache[/\\]([0-9]{4}\.[0-9]{4,5})[/\\]', os.path.abspath(file))
+        if match: arxiv_id = match.group(1)
+        if arxiv_id is not None:
+            # 优先用「论文简称_发布时间_会议」命名（元数据有本地缓存，失败回退编号命名）
+            try:
+                from shared_utils.arxiv_metadata import fetch_arxiv_metadata, build_translation_stem
+                meta = fetch_arxiv_metadata(arxiv_id)
+                stem = build_translation_stem(meta, arxiv_id)
+            except:
+                stem = arxiv_id
+            new_name = f"{stem}_{kind}.pdf"
+        else:
+            new_name = f"{gen_time_str()}_{kind}.pdf"
+        dst = pj(get_translation_library_dir(user_name), new_name)
+        if os.path.abspath(dst) != os.path.abspath(file):
+            shutil.copyfile(file, dst)
+            logger.info(f'翻译产物已归档到译文库: {dst}')
+        return dst
+    except:
+        return None
+
+
 def promote_file_to_downloadzone(file:str, rename_file:str=None, chatbot:ChatBotWithCookies=None):
     # 将文件复制一份到下载区
     import shutil
+
+    # 翻译类文件额外归档到固定译文库（失败不影响主流程）
+    archive_translation_to_library(file, user_name=(get_user(chatbot) if chatbot is not None else default_user_name))
 
     if chatbot is not None:
         user_name = get_user(chatbot)
