@@ -446,7 +446,10 @@ def archive_translation_to_library(file:str, user_name:str=default_user_name):
             new_name = f"{stem}_{kind}.pdf"
         else:
             new_name = f"{gen_time_str()}_{kind}.pdf"
-        dst = pj(get_translation_library_dir(user_name), new_name)
+        # 按类型分入子文件夹：中文译文/ 与 原文对照/
+        dst_dir = pj(get_translation_library_dir(user_name), kind)
+        os.makedirs(dst_dir, exist_ok=True)
+        dst = pj(dst_dir, new_name)
         if os.path.abspath(dst) != os.path.abspath(file):
             shutil.copyfile(file, dst)
             logger.info(f'翻译产物已归档到译文库: {dst}')
