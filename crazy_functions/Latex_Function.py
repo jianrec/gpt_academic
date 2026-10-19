@@ -423,6 +423,14 @@ def Latex翻译中文并重新编译PDF(txt, llm_kwargs, plugin_kwargs, chatbot,
                                    work_folder_original=project_folder, work_folder_modified=project_folder,
                                    work_folder=project_folder)
 
+    # <-------------- 补翻漏翻的英文段落（失败不影响主流程） ------------->
+    if success:
+        try:
+            from crazy_functions.latex_fns.translation_repair import repair_translation
+            repair_translation(project_folder, llm_kwargs, chatbot=chatbot)
+        except Exception:
+            logger.error(f'补翻步骤失败(不影响主流程): {trimmed_format_exc()}')
+
     # <-------------- zip PDF ------------->
     zip_res = zip_result(project_folder)
     if success:
@@ -576,6 +584,14 @@ def PDF翻译中文并重新编译PDF(txt, llm_kwargs, plugin_kwargs, chatbot, h
                                 main_file_modified='merge_translate_zh', mode='translate_zh',
                                 work_folder_original=project_folder, work_folder_modified=project_folder,
                                 work_folder=project_folder)
+
+    # <-------------- 补翻漏翻的英文段落（失败不影响主流程） ------------->
+    if success:
+        try:
+            from crazy_functions.latex_fns.translation_repair import repair_translation
+            repair_translation(project_folder, llm_kwargs, chatbot=chatbot)
+        except Exception:
+            logger.error(f'补翻步骤失败(不影响主流程): {trimmed_format_exc()}')
 
     # <-------------- zip PDF ------------->
     zip_res = zip_result(project_folder)
