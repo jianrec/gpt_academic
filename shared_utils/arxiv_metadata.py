@@ -60,6 +60,32 @@ def derive_venue(comment, journal_ref):
     return None
 
 
+def _fetch_meta_from_abs_page(arxiv_id, timeout=20):
+    """API 被限流(429)或不可用时，从 arXiv abs 网页兜底抓取标题/日期/comment"""
+    r = requests.get(f'https://arxiv.org/abs/{arxiv_id}', timeout=timeout,
+                     headers={'User-Agent': 'Mozilla/5.0'})
+    if r.status_code != 200:
+        return None
+    html = r.text
+    title = re.search(r'<meta name="citation_title" content="([^"]+)"', html)
+    if not title:
+        return None
+    date = re.search(r'<meta name="citation_date" content="([^"]+)"', html)
+    published = date.group(1).replace('/', '-') if date else ''
+    comment, journal_ref = '', ''
+    for pat in (r'<td class="tablecell comments[^"]*">(.*?)</td>',
+                r'<td class="tablecell mcell comments[^"]*">(.*?)</td>'):
+        m = re.search(pat, html, re.DOTALL)
+        if m:
+            comment = ' '.join(re.sub(r'<[^>]+>', ' ', m.group(1)).split())
+            break
+    m = re.search(r'<td class="tablecell jref">(.*?)</td>', html, re.DOTALL)
+    if m:
+        journal_ref = ' '.join(re.sub(r'<[^>]+>', ' ', m.group(1)).split())
+    return {'arxiv_id': arxiv_id, 'title': title.group(1), 'published': published,
+            'comment': comment, 'journal_ref': journal_ref}
+
+
 def fetch_arxiv_metadata(arxiv_id, cache_dir=None, timeout=20):
     """
     拉取 arXiv 论文元数据（标题、发布时间、会议信息），本地缓存到
@@ -88,7 +114,7 @@ def fetch_arxiv_metadata(arxiv_id, cache_dir=None, timeout=20):
         root = ET.fromstring(resp.text)
         entry = root.find('a:entry', ns)
         if entry is None or entry.find('a:title', ns) is None:
-            return cached
+            raise RuntimeError('arXiv API 返回空条目')
         title = _clean_title_text(entry.find('a:title', ns).text or '')
         published = (entry.find('a:published', ns).text or '')[:10]
         comment_el = entry.find('ar:comment', ns)
@@ -107,7 +133,19 @@ def fetch_arxiv_metadata(arxiv_id, cache_dir=None, timeout=20):
             json.dump(meta, f, ensure_ascii=False, indent=2)
         cached = meta
     except Exception as e:
-        logger.info(f'拉取arXiv元数据失败({arxiv_id})，使用本地缓存或回退编号命名: {e}')
+        logger.info(f'拉取arXiv元数据失败({arxiv_id})，尝试网页兜底: {e}')
+
+    if cached is None:
+        # API 限流(429)或不可用时，从 abs 网页兜底抓取
+        try:
+            cached = _fetch_meta_from_abs_page(arxiv_id, timeout=timeout)
+            if cached is not None:
+                os.makedirs(os.path.dirname(meta_path), exist_ok=True)
+                with open(meta_path, 'w', encoding='utf-8') as f:
+                    json.dump(cached, f, ensure_ascii=False, indent=2)
+                logger.info(f'已通过网页兜底获取arXiv元数据: {arxiv_id}')
+        except Exception as e:
+            logger.info(f'网页兜底失败({arxiv_id}): {e}')
 
     if cached is None:
         return None
