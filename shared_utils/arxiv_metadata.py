@@ -167,3 +167,37 @@ def build_translation_stem(meta, arxiv_id):
     if not parts:
         parts = [arxiv_id]
     return '_'.join(parts)
+
+
+def stem_from_pdf_title(pdf_path):
+    """
+    上传PDF翻译（路径中无arxiv编号）时的命名兜底：
+    从译文PDF首页提取英文标题，先按标题检索arXiv补全元数据命名；
+    检索不到则直接用标题简称，避免退化为时间戳命名。
+    """
+    try:
+        import fitz
+        doc = fitz.open(pdf_path)
+        lines = [l.strip() for l in doc[0].get_text().split('\n') if l.strip()]
+        doc.close()
+        if not lines:
+            return None
+        title = re.sub(r'\s+', ' ', ' '.join(lines[:2])).strip()
+        if len(title) < 8:
+            return None
+        try:
+            r = requests.get(ARXIV_API, params={'search_query': f'ti:"{title}"', 'max_results': 1}, timeout=20)
+            if r.status_code == 200:
+                import xml.etree.ElementTree as ET
+                ns = {'a': 'http://www.w3.org/2005/Atom'}
+                entry = ET.fromstring(r.text).find('a:entry', ns)
+                if entry is not None and entry.find('a:title', ns) is not None:
+                    aid = entry.find('a:id', ns).text.split('/abs/')[-1].split('v')[0]
+                    meta = fetch_arxiv_metadata(aid)
+                    if meta:
+                        return build_translation_stem(meta, aid)
+        except Exception:
+            pass
+        return derive_short_name(title)
+    except Exception:
+        return None
