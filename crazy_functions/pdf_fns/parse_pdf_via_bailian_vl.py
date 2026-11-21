@@ -22,7 +22,9 @@ PAGE_PROMPT = (
     "preserve tables with tabular/booktabs; preserve headings with \\section/\\subsection; "
     "preserve \\title/\\author/\\maketitle if present; keep citations as \\cite{readablekey}; "
     "do NOT emit \\includegraphics (represent figures as a LaTeX comment instead); "
-    "ignore page numbers, running headers and footers; output ONLY the LaTeX code."
+    "ignore page numbers, running headers and footers; "
+    "ignore proceedings banners such as 'This paper is included in the Proceedings of ...' "
+    "and ISBN/copyright lines; output ONLY the LaTeX code."
 )
 
 

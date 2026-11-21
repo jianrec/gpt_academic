@@ -176,13 +176,27 @@ def stem_from_pdf_title(pdf_path):
     检索不到则直接用标题简称，避免退化为时间戳命名。
     """
     try:
-        import fitz
-        doc = fitz.open(pdf_path)
-        lines = [l.strip() for l in doc[0].get_text().split('\n') if l.strip()]
-        doc.close()
-        if not lines:
-            return None
-        title = re.sub(r'\s+', ' ', ' '.join(lines[:2])).strip()
+        title = None
+        # 优先从同目录tex提取\title（比PDF首页可靠，首页可能带会议proceedings横幅）
+        tex_dir = os.path.dirname(pdf_path)
+        for tex_name in ('merge_translate_zh.tex', 'main.tex'):
+            tex_path = os.path.join(tex_dir, tex_name)
+            if os.path.exists(tex_path):
+                with open(tex_path, encoding='utf-8', errors='replace') as f:
+                    m = re.search(r'\\title\{([^{}]+)\}', f.read())
+                if m:
+                    title = re.sub(r'\s+', ' ', m.group(1)).strip()
+                    break
+        if not title:
+            import fitz
+            doc = fitz.open(pdf_path)
+            lines = [l.strip() for l in doc[0].get_text().split('\n') if l.strip()]
+            doc.close()
+            banner = re.compile(r'(?i)(this paper is included|proceedings of the|isbn|copyright|©|usenix|advanced computing|conference on|santa clara|open access|sponsored|https?://|^(january|february|march|april|may|june|july|august|september|october|november|december)\\s)')
+            lines = [l for l in lines if not banner.search(l)]
+            if not lines:
+                return None
+            title = re.sub(r'\s+', ' ', ' '.join(lines[:2])).strip()
         if len(title) < 8:
             return None
         try:
@@ -198,6 +212,39 @@ def stem_from_pdf_title(pdf_path):
                         return build_translation_stem(meta, aid)
         except Exception:
             pass
-        return derive_short_name(title)
+        # 不在arXiv上：从会议proceedings横幅提取会议与日期（如 USENIX FAST'26）
+        venue, time_str = _parse_proceedings_banner(pdf_path)
+        parts = [derive_short_name(title), time_str, venue]
+        return '_'.join(p for p in parts if p) or None
     except Exception:
         return None
+
+
+MONTHS = {m: i + 1 for i, m in enumerate(
+    ['January', 'February', 'March', 'April', 'May', 'June',
+     'July', 'August', 'September', 'October', 'November', 'December'])}
+
+
+def _parse_proceedings_banner(pdf_path):
+    """从PDF首页的会议横幅提取 (venue, time_str)，如 FAST2026 / 202602"""
+    try:
+        import fitz
+        doc = fitz.open(pdf_path)
+        text = doc[0].get_text()
+        doc.close()
+        venue, time_str = None, None
+        m = re.search(r'usenix\.org/conference/([a-z]+)(\d{2,4})', text)
+        if m:
+            year = m.group(2) if len(m.group(2)) == 4 else '20' + m.group(2)
+            venue = m.group(1).upper() + year
+        if not venue:
+            m = re.search(r"\(([A-Z]{2,10})\s*['’]?(\d{2,4})\)", text)
+            if m:
+                year = m.group(2) if len(m.group(2)) == 4 else '20' + m.group(2)
+                venue = m.group(1) + year
+        m = re.search(r'(' + '|'.join(MONTHS) + r')\s+\d{1,2}(?:[–\-—]\d{1,2})?,?\s+(\d{4})', text)
+        if m:
+            time_str = m.group(2) + f"{MONTHS[m.group(1)]:02d}"
+        return venue, time_str
+    except Exception:
+        return None, None
