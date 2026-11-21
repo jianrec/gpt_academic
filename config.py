@@ -288,6 +288,9 @@ MATHPIX_APPKEY = ""
 # DOC2X的PDF解析服务，注册账号并获取API KEY: https://doc2x.noedgeai.com/login
 DOC2X_API_KEY = ""
 
+# 无DOC2X/MATHPIX key时，PDF翻译兜底使用百炼视觉模型逐页转LaTeX（复用API_KEY与API_URL_REDIRECT）
+PDF_VL_MODEL = "qwen3-vl-plus"
+
 
 # 自定义API KEY格式
 CUSTOM_API_KEY_PATTERN = ""

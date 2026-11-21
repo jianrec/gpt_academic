@@ -73,7 +73,7 @@ class PDF_Localize(GptAcademicPluginTemplate):
                                         r'If the term "agent" is used in this section, it should be translated to "智能体". ',
                             default_value="", type="string").model_dump_json(), # 高级参数输入区，自动同步
             "method":
-                ArgProperty(title="采用哪种方法执行转换", options=["MATHPIX", "DOC2X"], default_value="DOC2X", description="无", type="dropdown").model_dump_json(),
+                ArgProperty(title="采用哪种方法执行转换", options=["BAILIAN_VL", "MATHPIX", "DOC2X"], default_value="BAILIAN_VL", description="BAILIAN_VL=百炼视觉逐页转LaTeX(用现有百炼key); MATHPIX/DOC2X=外部解析服务(需各自key)", type="dropdown").model_dump_json(),
 
         }
         return gui_definition

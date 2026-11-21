@@ -179,6 +179,9 @@ def arxiv_download(chatbot, history, txt, allow_cache=True):
 
 
 def pdf2tex_project(pdf_file_path, plugin_kwargs):
+    if plugin_kwargs.get("method", "") == "BAILIAN_VL":
+        from crazy_functions.pdf_fns.parse_pdf_via_bailian_vl import 解析PDF_百炼VL_转Latex
+        return 解析PDF_百炼VL_转Latex(pdf_file_path)
     if plugin_kwargs["method"] == "MATHPIX":
         # Mathpix API credentials
         app_id, app_key = get_conf('MATHPIX_APPID', 'MATHPIX_APPKEY')
@@ -507,16 +510,15 @@ def PDF翻译中文并重新编译PDF(txt, llm_kwargs, plugin_kwargs, chatbot, h
     if plugin_kwargs.get("method", "") == 'MATHPIX':
         app_id, app_key = get_conf('MATHPIX_APPID', 'MATHPIX_APPKEY')
         if len(app_id) == 0 or len(app_key) == 0:
-            report_exception(chatbot, history, a="缺失 MATHPIX_APPID 和 MATHPIX_APPKEY。", b=f"请配置 MATHPIX_APPID 和 MATHPIX_APPKEY")
+            plugin_kwargs["method"] = "BAILIAN_VL"
+            chatbot.append(["解析方法切换", "未配置 MATHPIX key，自动改用百炼视觉解析（复用现有百炼 API_KEY）。"])
             yield from update_ui(chatbot=chatbot, history=history)  # 刷新界面
-            return
     if plugin_kwargs.get("method", "") == 'DOC2X':
-        app_id, app_key = "", ""
         DOC2X_API_KEY = get_conf('DOC2X_API_KEY')
         if len(DOC2X_API_KEY) == 0:
-            report_exception(chatbot, history, a="缺失 DOC2X_API_KEY。", b=f"请配置 DOC2X_API_KEY")
+            plugin_kwargs["method"] = "BAILIAN_VL"
+            chatbot.append(["解析方法切换", "未配置 DOC2X key，自动改用百炼视觉解析（复用现有百炼 API_KEY）。"])
             yield from update_ui(chatbot=chatbot, history=history)  # 刷新界面
-            return
 
     hash_tag = map_file_to_sha256(file_manifest[0])
 
